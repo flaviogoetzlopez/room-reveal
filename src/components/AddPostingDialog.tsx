@@ -153,13 +153,13 @@ const AddPostingDialog = ({ open, onOpenChange, onPostingAdded }: AddPostingDial
         <DialogHeader>
           <DialogTitle>Add New Property</DialogTitle>
           <DialogDescription>
-            Paste an ImmoScout URL to automatically extract all room images
+            Paste an ImmoScout24 URL to automatically extract all room images. Only immobilienscout24.de URLs are supported.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleScrapeAndCreate} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="url">ImmoScout URL</Label>
+            <Label htmlFor="url">ImmoScout24 URL</Label>
             <Input
               id="url"
               type="url"

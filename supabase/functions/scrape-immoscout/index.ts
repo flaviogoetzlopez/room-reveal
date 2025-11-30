@@ -19,11 +19,37 @@ serve(async (req: Request) => {
       throw new Error("URL is required");
     }
 
+    // Validate that it's an ImmoScout24 URL
+    if (!url.includes('immobilienscout24.de')) {
+      throw new Error("Only ImmoScout24 URLs are supported. Please use a URL from immobilienscout24.de (not immowelt.de or other sites).");
+    }
+
     // @ts-ignore
     const APIFY_CLIENT_KEY = Deno.env.get("APIFY_CLIENT_KEY");
     if (!APIFY_CLIENT_KEY) {
       throw new Error("APIFY_CLIENT_KEY not configured");
     }
+
+    // Clean the URL to extract just the expose ID
+    const cleanImmoScoutUrl = (inputUrl: string): string => {
+      try {
+        const urlObj = new URL(inputUrl);
+        
+        // Extract expose ID from different URL patterns
+        const exposeMatch = urlObj.pathname.match(/\/expose\/(\d+)/);
+        if (exposeMatch) {
+          return `https://www.immobilienscout24.de/expose/${exposeMatch[1]}`;
+        }
+        
+        // Return as is if no pattern matches
+        return inputUrl;
+      } catch {
+        return inputUrl;
+      }
+    };
+
+    const cleanedUrl = cleanImmoScoutUrl(url);
+    console.log("Starting Apify scrape for URL:", cleanedUrl, "(original:", url, ")");
 
     // Start the Actor run with longer timeout
     const runResponse = await fetch("https://api.apify.com/v2/acts/nMiNd0glV6oqKv78Y/runs?waitForFinish=300", {
@@ -33,7 +59,7 @@ serve(async (req: Request) => {
         Authorization: `Bearer ${APIFY_CLIENT_KEY}`,
       },
       body: JSON.stringify({
-        startUrls: [url],
+        startUrls: [cleanedUrl],
       }),
     });
 
