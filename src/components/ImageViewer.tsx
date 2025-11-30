@@ -8,9 +8,10 @@ interface ImageViewerProps {
     original_image_url: string;
     current_image_url: string;
   } | undefined;
+  selectedImageUrl?: string | null;
 }
 
-const ImageViewer = ({ room }: ImageViewerProps) => {
+const ImageViewer = ({ room, selectedImageUrl }: ImageViewerProps) => {
   const [previousImageUrl, setPreviousImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -65,12 +66,17 @@ const ImageViewer = ({ room }: ImageViewerProps) => {
           <div className="text-xs font-semibold text-primary mb-2 px-2">
             AFTER
           </div>
-          <div className="flex-1 flex items-center justify-center bg-background/50 rounded-lg p-4">
+          <div className="flex-1 flex items-center justify-center bg-background/50 rounded-lg p-4 relative">
             <img
-              src={room.current_image_url}
+              src={selectedImageUrl || room.current_image_url}
               alt={`${room.room_name} - After`}
               className="max-w-full max-h-full object-contain rounded-md shadow-card"
             />
+            {selectedImageUrl && (
+              <div className="absolute top-2 right-2 bg-primary/90 text-primary-foreground px-3 py-1 rounded-md text-xs font-semibold">
+                Viewing History
+              </div>
+            )}
           </div>
         </div>
       </div>
