@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { ApifyClient } from "npm:apify-client";
+import { ApifyClient } from "https://esm.sh/apify-client@2.9.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,34 +72,46 @@ serve(async (req: Request) => {
       throw new Error("No data returned from the scraper. The property might be unavailable.");
     }
 
-    const item = items[0];
+    const item = items[0] as any;
 
-    // Log the raw item for debugging purposes (optional, can be removed in prod)
-    // console.dir(item);
+    console.log("Parsing scraped data structure...");
 
-    // Map the Apify result to our expected format
-    // We try to be flexible with the fields as scraping results can vary
-    let pictures: any[] = [];
-    if (Array.isArray(item.media)) {
-      pictures = item.media.filter((m: any) => m.type === "PICTURE" || m["@type"] === "PICTURE");
-    } else if (Array.isArray(item.pictures)) {
-      pictures = item.pictures;
-    } else if (Array.isArray(item.images)) {
-      pictures = item.images;
+    // Extract title from TITLE section
+    let title = "Untitled Property";
+    const sections = item.sections || [];
+    const titleSection = sections.find((s: any) => s.type === "TITLE");
+    if (titleSection?.title) {
+      title = titleSection.title;
     }
 
+    // Extract address from MAP section
+    let address = "Address not available";
+    const mapSection = sections.find((s: any) => s.type === "MAP");
+    if (mapSection) {
+      const addressLine1 = mapSection.addressLine1 || "";
+      const addressLine2 = mapSection.addressLine2 || "";
+      address = [addressLine1, addressLine2].filter(Boolean).join(", ");
+    }
+
+    // Extract pictures from MEDIA section
+    let pictures: any[] = [];
+    const mediaSection = sections.find((s: any) => s.type === "MEDIA");
+    if (mediaSection?.media && Array.isArray(mediaSection.media)) {
+      pictures = mediaSection.media
+        .filter((m: any) => m.type === "PICTURE")
+        .map((p: any) => ({
+          url: p.fullImageUrl || p.previewImageUrl || p.imageUrlForWeb,
+          title: p.caption || null,
+        }))
+        .filter((p: any) => p.url);
+    }
+
+    console.log(`Extracted: title="${title}", address="${address}", ${pictures.length} pictures`);
+
     const propertyData = {
-      title: item.title || item.name || "Untitled Property",
-      address: item.address?.formattedAddress || item.address?.description || item.location || "Address not available",
-      description: item.description || item.descriptionNote || "",
-      price: item.price || item.purchasePrice || item.baseRent || null,
-      livingSpace: item.livingSpace || item.livingArea || null,
-      roomCount: item.numberOfRooms || item.roomCount || null,
-      pictures: pictures.map((p: any) => ({
-        url: p.url || p.uri || p.src || p.imageUrl,
-        title: p.title || p.alt || null,
-      })).filter((p: any) => p.url),
-      raw: item // Include raw data just in case
+      title,
+      address,
+      pictures,
     };
 
     console.log("Successfully processed property data");
