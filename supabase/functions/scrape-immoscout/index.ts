@@ -5,6 +5,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Clean ImmoScout URL to get just the expose URL
+function cleanImmoScoutUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    // Extract just the expose path without query params or hash
+    const match = urlObj.pathname.match(/\/expose\/(\d+)/);
+    if (match) {
+      return `https://www.immobilienscout24.de/expose/${match[1]}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -22,9 +37,11 @@ serve(async (req) => {
       throw new Error("APIFY_CLIENT_KEY not configured");
     }
 
-    console.log("Starting Apify scrape for URL:", url);
+    // Clean the URL to remove query params and hash
+    const cleanedUrl = cleanImmoScoutUrl(url);
+    console.log("Starting Apify scrape for URL:", cleanedUrl, "(original:", url, ")");
 
-    // Start the Actor run
+    // Start the Actor run with longer timeout
     const runResponse = await fetch("https://api.apify.com/v2/acts/nMiNd0glV6oqKv78Y/runs?waitForFinish=300", {
       method: "POST",
       headers: {
@@ -32,24 +49,27 @@ serve(async (req) => {
         Authorization: `Bearer ${APIFY_CLIENT_KEY}`,
       },
       body: JSON.stringify({
-        startUrls: [{ url }],
+        startUrls: [{ url: cleanedUrl }],
       }),
     });
 
     if (!runResponse.ok) {
       const errorText = await runResponse.text();
       console.error("Apify run failed:", errorText);
-      throw new Error(`Apify run failed: ${runResponse.status}`);
+      throw new Error(`Apify run failed: ${runResponse.status} - ${errorText}`);
     }
 
     const runData = await runResponse.json();
+    console.log("Apify run response:", JSON.stringify(runData));
+    
     const datasetId = runData.data?.defaultDatasetId;
+    const runStatus = runData.data?.status;
 
     if (!datasetId) {
       throw new Error("No dataset ID returned from Apify");
     }
 
-    console.log("Apify run completed, fetching dataset:", datasetId);
+    console.log("Apify run status:", runStatus, "- fetching dataset:", datasetId);
 
     // Fetch results from the dataset
     const datasetResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items`, {
@@ -59,32 +79,51 @@ serve(async (req) => {
     });
 
     if (!datasetResponse.ok) {
+      const errorText = await datasetResponse.text();
+      console.error("Dataset fetch failed:", errorText);
       throw new Error(`Failed to fetch dataset: ${datasetResponse.status}`);
     }
 
     const items = await datasetResponse.json();
-    console.log("Apify dataset items:", items);
+    console.log("Apify dataset items count:", items.length);
+    
+    if (items.length > 0) {
+      console.log("First item keys:", Object.keys(items[0]));
+    }
+    
     const item = items[0];
 
     if (!item) {
-      throw new Error("No data returned from scraper");
+      throw new Error("No data returned from scraper. The property might be unavailable or the URL format is incorrect.");
     }
 
-    // Extract pictures from media
-    const media = item?.media || [];
-    const pictures = media.filter((m: any) => m.type === "PICTURE");
+    // Extract pictures from media - handle different possible structures
+    let pictures: any[] = [];
+    
+    if (Array.isArray(item.media)) {
+      pictures = item.media.filter((m: any) => m.type === "PICTURE" || m["@type"] === "PICTURE");
+    } else if (item.pictures) {
+      pictures = item.pictures;
+    } else if (item.images) {
+      pictures = item.images;
+    }
 
     console.log(`Found ${pictures.length} pictures`);
+    if (pictures.length > 0) {
+      console.log("Sample picture structure:", JSON.stringify(pictures[0]));
+    }
 
     // Extract relevant property data
     const propertyData = {
-      title: item.title || "Untitled Property",
-      address: item.address?.formattedAddress || item.address?.description || null,
+      title: item.title || item.name || "Untitled Property",
+      address: item.address?.formattedAddress || item.address?.description || item.location || null,
       pictures: pictures.map((p: any) => ({
-        url: p.url || p.uri,
-        title: p.title || null,
-      })),
+        url: p.url || p.uri || p.src || p.imageUrl,
+        title: p.title || p.alt || null,
+      })).filter((p: any) => p.url),
     };
+
+    console.log("Extracted property data:", JSON.stringify(propertyData));
 
     return new Response(JSON.stringify({ success: true, data: propertyData }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
