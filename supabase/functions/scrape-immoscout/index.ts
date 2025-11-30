@@ -12,7 +12,7 @@ serve(async (req) => {
 
   try {
     const { url } = await req.json();
-    
+
     if (!url) {
       throw new Error("URL is required");
     }
@@ -25,19 +25,16 @@ serve(async (req) => {
     console.log("Starting Apify scrape for URL:", url);
 
     // Start the Actor run
-    const runResponse = await fetch(
-      "https://api.apify.com/v2/acts/nMiNd0glV6oqKv78Y/runs?waitForFinish=300",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${APIFY_CLIENT_KEY}`,
-        },
-        body: JSON.stringify({
-          startUrls: [{ url }],
-        }),
-      }
-    );
+    const runResponse = await fetch("https://api.apify.com/v2/acts/nMiNd0glV6oqKv78Y/runs?waitForFinish=300", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${APIFY_CLIENT_KEY}`,
+      },
+      body: JSON.stringify({
+        startUrls: [{ url }],
+      }),
+    });
 
     if (!runResponse.ok) {
       const errorText = await runResponse.text();
@@ -55,20 +52,18 @@ serve(async (req) => {
     console.log("Apify run completed, fetching dataset:", datasetId);
 
     // Fetch results from the dataset
-    const datasetResponse = await fetch(
-      `https://api.apify.com/v2/datasets/${datasetId}/items`,
-      {
-        headers: {
-          "Authorization": `Bearer ${APIFY_CLIENT_KEY}`,
-        },
-      }
-    );
+    const datasetResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items`, {
+      headers: {
+        Authorization: `Bearer ${APIFY_CLIENT_KEY}`,
+      },
+    });
 
     if (!datasetResponse.ok) {
       throw new Error(`Failed to fetch dataset: ${datasetResponse.status}`);
     }
 
     const items = await datasetResponse.json();
+    console.log("Apify dataset items:", items);
     const item = items[0];
 
     if (!item) {
@@ -91,18 +86,14 @@ serve(async (req) => {
       })),
     };
 
-    return new Response(
-      JSON.stringify({ success: true, data: propertyData }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ success: true, data: propertyData }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error: any) {
     console.error("Error:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
