@@ -28,7 +28,6 @@ const Editor = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [currentRoomIndex, setCurrentRoomIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -67,16 +66,10 @@ const Editor = () => {
 
   const handlePrevious = () => {
     setCurrentRoomIndex((prev) => Math.max(0, prev - 1));
-    setSelectedImageUrl(null);
   };
 
   const handleNext = () => {
     setCurrentRoomIndex((prev) => Math.min(rooms.length - 1, prev + 1));
-    setSelectedImageUrl(null);
-  };
-
-  const handleMessageClick = (imageUrl: string) => {
-    setSelectedImageUrl(imageUrl);
   };
 
   if (loading) {
@@ -150,20 +143,16 @@ const Editor = () => {
                   </Button>
                 </div>
               </div>
-              <ImageViewer room={currentRoom} selectedImageUrl={selectedImageUrl} />
+              <ImageViewer room={currentRoom} />
             </div>
 
             {/* Right Panel - Chat Interface */}
             <div className="w-96 flex flex-col bg-card/30">
-            <ChatInterface
-              roomId={currentRoom?.id}
-              currentImageUrl={currentRoom?.current_image_url}
-              onImageUpdated={() => {
-                fetchData();
-                setSelectedImageUrl(null);
-              }}
-              onMessageClick={handleMessageClick}
-            />
+              <ChatInterface 
+                roomId={currentRoom?.id} 
+                currentImageUrl={currentRoom?.current_image_url}
+                onImageUpdated={fetchData}
+              />
             </div>
           </>
         )}
