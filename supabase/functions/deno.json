@@ -1,6 +1,0 @@
-{
-  "nodeModulesDir": "auto",
-  "imports": {
-    "apify-client": "npm:apify-client@^2.9.3"
-  }
-}
