@@ -85,16 +85,26 @@ const ChatInterface = ({ roomId, currentImageUrl, onImageUpdated }: ChatInterfac
     setInputValue("");
 
     try {
-      const { data, error } = await supabase.functions.invoke("edit-room-image", {
-        body: {
-          roomId,
-          userMessage: messageText,
-          currentImageUrl,
-        },
-      });
+      // Call the Flux API directly
+      const imageUrl = await createNewImageFromPrompt(messageText, currentImageUrl);
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // Optionally save the message to Supabase to maintain history (if desired, otherwise just update UI)
+      // For now, we'll just update the UI as requested by "use api2_flux.tsx as its backend"
+
+      // If we want to persist the chat, we should insert into room_edits
+      const { error: dbError } = await supabase
+        .from("room_edits")
+        .insert({
+          room_id: roomId,
+          edit_type: "user",
+          description: messageText,
+          image_url: imageUrl
+        });
+
+      if (dbError) {
+        console.error("Failed to save to history:", dbError);
+        // We don't throw here because we successfully generated the image
+      }
 
       onImageUpdated();
     } catch (error: any) {
@@ -132,11 +142,10 @@ const ChatInterface = ({ roomId, currentImageUrl, onImageUpdated }: ChatInterfac
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`p-3 rounded-md ${
-                  message.edit_type === "user"
-                    ? "bg-primary/10 border border-primary/20 ml-8"
-                    : "bg-secondary/50 border border-border/50 mr-8"
-                }`}
+                className={`p-3 rounded-md ${message.edit_type === "user"
+                  ? "bg-primary/10 border border-primary/20 ml-8"
+                  : "bg-secondary/50 border border-border/50 mr-8"
+                  }`}
               >
                 <div className="flex items-start justify-between mb-1">
                   <span className="text-xs font-semibold text-primary uppercase">
