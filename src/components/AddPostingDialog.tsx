@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Home, Search } from "lucide-react";
+import { scrapeImmoscout } from "@/api2_immo";
 
 interface AddPostingDialogProps {
   open: boolean;
@@ -18,28 +19,18 @@ const AddPostingDialog = ({ open, onOpenChange, onPostingAdded }: AddPostingDial
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
 
+
   const handleScrapeAndCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setLoadingMessage("Scraping ImmoScout...");
-
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Call the scraper edge function
-      const { data: scrapeResult, error: scrapeError } = await supabase.functions.invoke(
-        "scrape-immoscout",
-        { body: { url } }
-      );
+      const propertyData = await scrapeImmoscout(url);
+      setLoadingMessage("Saving property...");
 
-      if (scrapeError) throw scrapeError;
-      if (scrapeResult.error) throw new Error(scrapeResult.error);
-
-      const propertyData = scrapeResult.data;
-      setLoadingMessage("Creating property...");
-
-      // Create the posting
       const { data: postingData, error: postingError } = await supabase
         .from("postings")
         .insert({
@@ -54,21 +45,20 @@ const AddPostingDialog = ({ open, onOpenChange, onPostingAdded }: AddPostingDial
 
       if (postingError) throw postingError;
 
-      setLoadingMessage(`Creating ${propertyData.pictures.length} rooms...`);
-
-      // Create rooms for each picture
-      for (let i = 0; i < propertyData.pictures.length; i++) {
-        const picture = propertyData.pictures[i];
-        await supabase.from("rooms").insert({
+      if (propertyData.pictures.length > 0) {
+        const roomsToInsert = propertyData.pictures.map((pic, index) => ({
           posting_id: postingData.id,
-          room_name: picture.title || `Room ${i + 1}`,
-          original_image_url: picture.url,
-          current_image_url: picture.url,
-          room_order: i,
-        });
+          room_name: pic.title || `Room ${index + 1}`,
+          original_image_url: pic.url,
+          current_image_url: pic.url,
+          room_order: index,
+        }));
+
+        const { error: roomsError } = await supabase.from("rooms").insert(roomsToInsert);
+        if (roomsError) throw roomsError;
       }
 
-      toast.success(`Property added with ${propertyData.pictures.length} rooms!`);
+      toast.success("Property scraped and saved successfully!");
       setUrl("");
       onOpenChange(false);
       onPostingAdded();

@@ -1,26 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Clean ImmoScout URL to get just the expose URL
-function cleanImmoScoutUrl(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    // Extract just the expose path without query params or hash
-    const match = urlObj.pathname.match(/\/expose\/(\d+)/);
-    if (match) {
-      return `https://www.immobilienscout24.de/expose/${match[1]}`;
-    }
-    return url;
-  } catch {
-    return url;
-  }
-}
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -32,14 +19,11 @@ serve(async (req) => {
       throw new Error("URL is required");
     }
 
+    // @ts-ignore
     const APIFY_CLIENT_KEY = Deno.env.get("APIFY_CLIENT_KEY");
     if (!APIFY_CLIENT_KEY) {
       throw new Error("APIFY_CLIENT_KEY not configured");
     }
-
-    // Clean the URL to remove query params and hash
-    const cleanedUrl = cleanImmoScoutUrl(url);
-    console.log("Starting Apify scrape for URL:", cleanedUrl, "(original:", url, ")");
 
     // Start the Actor run with longer timeout
     const runResponse = await fetch("https://api.apify.com/v2/acts/nMiNd0glV6oqKv78Y/runs?waitForFinish=300", {
@@ -49,7 +33,7 @@ serve(async (req) => {
         Authorization: `Bearer ${APIFY_CLIENT_KEY}`,
       },
       body: JSON.stringify({
-        startUrls: [{ url: cleanedUrl }],
+        startUrls: [url],
       }),
     });
 
@@ -61,7 +45,7 @@ serve(async (req) => {
 
     const runData = await runResponse.json();
     console.log("Apify run response:", JSON.stringify(runData));
-    
+
     const datasetId = runData.data?.defaultDatasetId;
     const runStatus = runData.data?.status;
 
@@ -86,11 +70,11 @@ serve(async (req) => {
 
     const items = await datasetResponse.json();
     console.log("Apify dataset items count:", items.length);
-    
+
     if (items.length > 0) {
       console.log("First item keys:", Object.keys(items[0]));
     }
-    
+
     const item = items[0];
 
     if (!item) {
@@ -99,7 +83,7 @@ serve(async (req) => {
 
     // Extract pictures from media - handle different possible structures
     let pictures: any[] = [];
-    
+
     if (Array.isArray(item.media)) {
       pictures = item.media.filter((m: any) => m.type === "PICTURE" || m["@type"] === "PICTURE");
     } else if (item.pictures) {
