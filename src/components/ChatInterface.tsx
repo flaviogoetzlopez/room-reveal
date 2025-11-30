@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Send, Loader2 } from "lucide-react";
+import { createNewImageFromPrompt } from "@/api2_flux";
 
 interface Message {
   id: string;
@@ -76,6 +77,10 @@ const ChatInterface = ({ roomId, currentImageUrl, onImageUpdated }: ChatInterfac
     }
   };
 
+
+
+  // ... (existing imports)
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim() || !roomId || !currentImageUrl || sending) return;
@@ -85,26 +90,12 @@ const ChatInterface = ({ roomId, currentImageUrl, onImageUpdated }: ChatInterfac
     setInputValue("");
 
     try {
-      // Call the Flux API directly
-      const imageUrl = await createNewImageFromPrompt(messageText, currentImageUrl);
+      // Call the Flux API via Supabase Edge Function
+      // The function handles DB inserts for both user message and assistant response
+      await createNewImageFromPrompt(messageText, currentImageUrl, roomId);
 
-      // Optionally save the message to Supabase to maintain history (if desired, otherwise just update UI)
-      // For now, we'll just update the UI as requested by "use api2_flux.tsx as its backend"
-
-      // If we want to persist the chat, we should insert into room_edits
-      const { error: dbError } = await supabase
-        .from("room_edits")
-        .insert({
-          room_id: roomId,
-          edit_type: "user",
-          description: messageText,
-          image_url: imageUrl
-        });
-
-      if (dbError) {
-        console.error("Failed to save to history:", dbError);
-        // We don't throw here because we successfully generated the image
-      }
+      // Refresh messages to show the new ones
+      await fetchMessages();
 
       onImageUpdated();
     } catch (error: any) {
