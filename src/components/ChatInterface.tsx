@@ -18,9 +18,10 @@ interface ChatInterfaceProps {
   roomId: string | undefined;
   currentImageUrl: string | undefined;
   onImageUpdated: () => void;
+  onMessageClick?: (imageUrl: string) => void;
 }
 
-const ChatInterface = ({ roomId, currentImageUrl, onImageUpdated }: ChatInterfaceProps) => {
+const ChatInterface = ({ roomId, currentImageUrl, onImageUpdated, onMessageClick }: ChatInterfaceProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -132,10 +133,11 @@ const ChatInterface = ({ roomId, currentImageUrl, onImageUpdated }: ChatInterfac
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`p-3 rounded-md ${
+                onClick={() => message.edit_type === "assistant" && onMessageClick?.(message.image_url)}
+                className={`p-3 rounded-md transition-all ${
                   message.edit_type === "user"
                     ? "bg-primary/10 border border-primary/20 ml-8"
-                    : "bg-secondary/50 border border-border/50 mr-8"
+                    : "bg-secondary/50 border border-border/50 mr-8 cursor-pointer hover:bg-secondary/70"
                 }`}
               >
                 <div className="flex items-start justify-between mb-1">
@@ -147,6 +149,9 @@ const ChatInterface = ({ roomId, currentImageUrl, onImageUpdated }: ChatInterfac
                   </span>
                 </div>
                 <p className="text-sm text-foreground">{message.description}</p>
+                {message.edit_type === "assistant" && (
+                  <p className="text-xs text-muted-foreground mt-1">Click to view this version</p>
+                )}
               </div>
             ))}
           </div>
