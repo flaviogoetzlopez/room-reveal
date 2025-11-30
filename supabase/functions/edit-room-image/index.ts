@@ -76,17 +76,15 @@ serve(async (req) => {
       BFL_API_KEY,
     );
 
-    // editedImageData = data.result.sample (entweder data URL oder reines Base64)
-    let base64Data = editedImageData;
-    if (editedImageData.includes(",")) {
-      // data:image/jpeg;base64,XXX -> nur den Base64-Teil nehmen
-      base64Data = editedImageData.split(",")[1];
+    // BFL API returns a URL to the generated image
+    console.log("Downloading image from URL:", editedImageData);
+    
+    const imageResponse = await fetch(editedImageData);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to download image: ${imageResponse.statusText}`);
     }
-
-    const imageBuffer = Uint8Array.from(
-      atob(base64Data),
-      (c) => c.charCodeAt(0),
-    );
+    
+    const imageBuffer = new Uint8Array(await imageResponse.arrayBuffer());
 
     const fileName = `${user.id}/${roomId}/${Date.now()}-edited.jpg`;
 
