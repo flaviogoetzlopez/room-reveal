@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ChevronLeft, ChevronRight, Upload } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import ImageViewer from "@/components/ImageViewer";
-import EditHistory from "@/components/EditHistory";
-import AddRoomDialog from "@/components/AddRoomDialog";
+import ChatInterface from "@/components/ChatInterface";
 
 interface Room {
   id: string;
@@ -29,7 +28,6 @@ const Editor = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [currentRoomIndex, setCurrentRoomIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [showAddRoomDialog, setShowAddRoomDialog] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -105,14 +103,6 @@ const Editor = () => {
               )}
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAddRoomDialog(true)}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Add Room
-          </Button>
         </div>
       </header>
 
@@ -120,11 +110,7 @@ const Editor = () => {
         {rooms.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-muted-foreground mb-4">No rooms added yet</p>
-              <Button onClick={() => setShowAddRoomDialog(true)}>
-                <Upload className="h-4 w-4 mr-2" />
-                Add your first room
-              </Button>
+              <p className="text-muted-foreground">No rooms found for this property</p>
             </div>
           </div>
         ) : (
@@ -160,20 +146,18 @@ const Editor = () => {
               <ImageViewer room={currentRoom} />
             </div>
 
-            {/* Right Panel - Edit History */}
+            {/* Right Panel - Chat Interface */}
             <div className="w-96 flex flex-col bg-card/30">
-              <EditHistory roomId={currentRoom?.id} />
+              <ChatInterface 
+                roomId={currentRoom?.id} 
+                currentImageUrl={currentRoom?.current_image_url}
+                onImageUpdated={fetchData}
+              />
             </div>
           </>
         )}
       </main>
 
-      <AddRoomDialog
-        postingId={postingId!}
-        open={showAddRoomDialog}
-        onOpenChange={setShowAddRoomDialog}
-        onRoomAdded={fetchData}
-      />
     </div>
   );
 };
